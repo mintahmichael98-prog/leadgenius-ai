@@ -1,10 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { Lead } from "../types";
 
-const API_KEY = process.env.API_KEY;
+// --- FIX START ---
+// 1. Use 'import.meta.env' instead of 'process.env'.
+// 2. Use the correct, Vercel-stored variable name: VITE_GEMINI_API_KEY
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Fallback if key is missing to prevent crash on init, though app handles the error UI.
-const genAI = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+// Initialize the GoogleGenAI client with the correct key
+const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null; 
+// --- FIX END ---
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
