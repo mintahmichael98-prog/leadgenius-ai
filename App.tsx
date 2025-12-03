@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ViewMode, Lead, SearchState, UserProfile, Transaction } from './types';
 import { generateLeadsBatch } from './services/geminiService';
@@ -11,11 +12,12 @@ import { PricingModal } from './components/PricingModal';
 import { TermsModal, PrivacyModal } from './components/LegalModals';
 import { exportDashboardToPDF } from './utils/exportPDF';
 import { exportToHubSpot, exportToSalesforce } from './utils/exportCRM';
+import { exportToCSV } from './utils/exportCSV';
 import { calculateLeadScore } from './utils/leadScore';
 import toast, { Toaster } from 'react-hot-toast';
 import {
   Download, Moon, Sun, Search, LayoutDashboard, List, Database, Zap,
-  CreditCard, LogOut, Star, Upload, Loader2, Filter
+  CreditCard, LogOut, Star, Upload, Loader2, Filter, FileSpreadsheet, Ban
 } from 'lucide-react';
 
 const BATCH_SIZE = 5;
@@ -191,6 +193,14 @@ export default function App() {
     }
   };
 
+  const handleStopMining = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      toast('Mining stopped by user', { icon: '🛑' });
+    }
+  };
+
   if (!user) {
     return (
       <>
@@ -281,6 +291,9 @@ export default function App() {
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
             {leads.length > 0 && (
               <>
+                 <button onClick={() => exportToCSV(leads, searchState.query)} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+                  <FileSpreadsheet className="w-4 h-4" /> CSV
+                </button>
                 <button onClick={exportDashboardToPDF} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors">
                   <Download className="w-4 h-4" /> Report
                 </button>
@@ -314,14 +327,25 @@ export default function App() {
                         className="w-full py-3 bg-transparent border-none focus:ring-0 text-lg placeholder:text-slate-400 text-slate-900 dark:text-white"
                     />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={searchState.isSearching || !searchState.query.trim()}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-xl font-semibold flex items-center gap-2 transition-all"
-                  >
-                    {searchState.isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
-                    {searchState.isSearching ? 'Mining...' : 'Find Leads'}
-                  </button>
+                  {searchState.isSearching ? (
+                     <button
+                        type="button"
+                        onClick={handleStopMining}
+                        className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold flex items-center gap-2 transition-all animate-pulse"
+                      >
+                        <Ban className="w-5 h-5" />
+                        Stop Mining
+                      </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!searchState.query.trim()}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-xl font-semibold flex items-center gap-2 transition-all"
+                    >
+                      <Database className="w-5 h-5" />
+                      Find Leads
+                    </button>
+                  )}
               </div>
             </div>
 
