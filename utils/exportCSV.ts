@@ -1,81 +1,82 @@
-/**
- * utils/exportCSV.ts
- * * Utility function to convert a JavaScript array of Lead objects into a CSV string
- * and trigger a download in the browser.
- */
 
-import { Lead } from "../types"; // Assuming Lead type is imported from types.ts
+import { Lead } from '../types';
+import toast from 'react-hot-toast';
 
-// Helper function to flatten the structure for CSV compatibility
-const flattenLead = (lead: Lead) => {
-    // Basic fields
-    const flattened = {
-        id: lead.id,
-        company: lead.company || '',
-        description: lead.description || '',
-        location: lead.location || '',
-        confidence: lead.confidence || 0,
-        website: lead.website || '',
-        contact: lead.contact || '',
-        industry: lead.industry || '',
-        employees: lead.employees || '',
-        
-        // Flatten social links
-        linkedin_social: lead.socials?.linkedin || '',
-        twitter_social: lead.socials?.twitter || '',
-        facebook_social: lead.socials?.facebook || '',
-
-        // Flatten management array (simplified to first two executives for CSV columns)
-        exec_1_name: lead.management[0]?.name || '',
-        exec_1_role: lead.management[0]?.role || '',
-        exec_1_linkedin: lead.management[0]?.linkedin || '',
-        
-        exec_2_name: lead.management[1]?.name || '',
-        exec_2_role: lead.management[1]?.role || '',
-        exec_2_linkedin: lead.management[1]?.linkedin || '',
-    };
-    return flattened;
+const escapeCsvField = (field: any): string => {
+  if (field === undefined || field === null) return '';
+  const stringField = String(field);
+  // If field contains comma, quote, or newline, wrap in quotes and escape internal quotes
+  if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+    return `"${stringField.replace(/"/g, '""')}"`;
+  }
+  return stringField;
 };
 
-// Main export function
-export const exportToCSV = (data: Lead[], filename: string = 'leads_export') => {
-    if (!data || data.length === 0) {
-        console.warn("No data to export.");
-        return;
-    }
+export const exportToCSV = (leads: Lead[], query: string) => {
+  if (leads.length === 0) {
+    toast.error("No leads to export");
+    return;
+  }
 
-    // 1. Prepare data (flatten nested objects)
-    const flattenedData = data.map(flattenLead);
+  const headers = [
+    "Company",
+    "Description",
+    "Location",
+    "Confidence",
+    "Industry",
+    "Website",
+    "Contact",
+    "Employees",
+    "Key People",
+    "WhatsApp",
+    "Company LinkedIn",
+    "Instagram",
+    "Twitter",
+    "Facebook"
+  ];
 
-    // 2. Generate CSV Header from keys of the first flattened object
-    const headers = Object.keys(flattenedData[0]);
-    const csvHeader = headers.map(h => `"${h}"`).join(',') + '\n'; // Quote headers for safety
+  const rows = leads.map(lead => {
+    // Format management as "Name (Role) - Link"
+    const managementText = lead.management
+      ?.map(p => {
+        // Use smart search link if direct link isn't available
+        const link = p.linkedin || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(p.name + " " + lead.company)}`;
+        return `${p.name} (${p.role}) - ${link}`;
+      })
+      .join('; ');
 
-    // 3. Generate CSV Rows
-    const csvRows = flattenedData.map(row => 
-        headers.map(header => {
-            let value = (row as any)[header] || '';
-            // Escape double quotes and enclose the value in quotes if it contains a comma or quote
-            value = String(value).replace(/"/g, '""');
-            if (value.includes(',') || value.includes('\n') || value.includes('"')) {
-                return `"${value}"`;
-            }
-            return value;
-        }).join(',')
-    ).join('\n');
+    const whatsappLink = lead.socials?.whatsapp ? `https://wa.me/${lead.socials.whatsapp}` : '';
 
-    const csvContent = csvHeader + csvRows;
+    return [
+      lead.company,
+      lead.description,
+      lead.location,
+      `${lead.confidence}%`,
+      lead.industry,
+      lead.website,
+      lead.contact,
+      lead.employees,
+      managementText,
+      whatsappLink,
+      lead.socials?.linkedin || '',
+      lead.socials?.instagram || '',
+      lead.socials?.twitter || '',
+      lead.socials?.facebook || ''
+    ].map(escapeCsvField).join(',');
+  });
 
-    // 4. Create and trigger download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filename}_${new Date().toISOString().slice(0, 10)}.csv`);
-    
-    // Append to body, click, and remove the element
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const csvContent = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  const timestamp = new Date().toISOString().split('T')[0];
+  link.download = `LeadGenius_${query.replace(/[^a-z0-9]/gi, '_')}_${timestamp}.csv`;
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  toast.success(`Exported ${leads.length} leads to CSV`);
 };

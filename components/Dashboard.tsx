@@ -1,8 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { Lead } from '../types';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import { Users, Building2, MapPin, TrendingUp } from 'lucide-react';
 
@@ -62,7 +62,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leads }) => {
         const city = l.location.split(',')[0].trim();
         counts[city] = (counts[city] || 0) + 1;
     });
-    // Fix: Object.entries returns [key, value], so access value via index 1 instead of .value
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
     return sorted[0] ? sorted[0][0] : 'N/A';
   }, [leads]);
@@ -79,49 +78,53 @@ const Dashboard: React.FC<DashboardProps> = ({ leads }) => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Industry Chart */}
+        {/* Industry Chart (Horizontal Bar) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Leads by Industry</h3>
+          <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Top Industries</h3>
           <div className="h-80 w-full">
              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={industryData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
+                <BarChart
+                  layout="vertical"
+                  data={industryData}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" opacity={0.1} />
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    width={100}
+                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    stroke="transparent"
+                  />
+                  <RechartsTooltip 
+                    cursor={{fill: 'transparent'}}
+                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9', borderRadius: '8px' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                     {industryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </Pie>
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }}
-                    itemStyle={{ color: '#f1f5f9' }}
-                  />
-                  <Legend />
-                </PieChart>
+                  </Bar>
+                </BarChart>
              </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Confidence Chart */}
+        {/* Confidence Chart (Vertical Bar) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Confidence Score Distribution</h3>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={confidenceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.1} />
-                <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                <YAxis stroke="#94a3b8" fontSize={12} />
                 <RechartsTooltip
                     cursor={{fill: 'transparent'}}
-                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }}
+                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9', borderRadius: '8px' }}
                 />
-                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>

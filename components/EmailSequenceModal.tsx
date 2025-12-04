@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Lead } from '../types';
 import { X, Send, Copy, Loader2, Sparkles, Wand2 } from 'lucide-react';
@@ -8,9 +9,10 @@ interface Props {
   lead: Lead;
   isOpen: boolean;
   onClose: () => void;
+  brandVoice?: string;
 }
 
-export default function EmailSequenceModal({ lead, isOpen, onClose }: Props) {
+export default function EmailSequenceModal({ lead, isOpen, onClose, brandVoice }: Props) {
   const [loading, setLoading] = useState(false);
   const [emailContent, setEmailContent] = useState('');
 
@@ -23,6 +25,8 @@ export default function EmailSequenceModal({ lead, isOpen, onClose }: Props) {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const contactName = lead.management?.[0]?.name || 'Hiring Manager';
+        const toneInstruction = brandVoice ? `BRAND VOICE: ${brandVoice}` : "Tone: Professional, concise, value-driven, and not spammy.";
+        
         const prompt = `
           Write a high-converting cold outreach email to ${lead.company}.
           
@@ -32,7 +36,7 @@ export default function EmailSequenceModal({ lead, isOpen, onClose }: Props) {
           
           Context: I am offering a B2B lead generation service called "LeadGenius".
           Goal: Book a 15-minute demo.
-          Tone: Professional, concise, value-driven, and not spammy.
+          ${toneInstruction}
           
           Subject Line: [Generate a catchy subject]
           Body: [Generate the email body]
@@ -43,7 +47,7 @@ export default function EmailSequenceModal({ lead, isOpen, onClose }: Props) {
             contents: prompt
         });
         
-        const text = result.response.text;
+        const text = result.text;
         if (text) setEmailContent(text);
         else throw new Error("No response");
 
@@ -81,6 +85,7 @@ export default function EmailSequenceModal({ lead, isOpen, onClose }: Props) {
                     <h4 className="text-lg font-medium text-slate-900 dark:text-white mb-2">Generate Personalized Outreach</h4>
                     <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-8">
                       Use Gemini AI to craft a tailored cold email to <span className="font-semibold text-slate-700 dark:text-slate-300">{lead.company}</span> based on their industry and key decision makers.
+                      {brandVoice && <span className="block mt-2 text-indigo-500 text-xs">Using Brand Voice: "{brandVoice}"</span>}
                     </p>
                     <button 
                       onClick={generateEmail} 

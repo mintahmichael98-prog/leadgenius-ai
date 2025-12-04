@@ -1,17 +1,41 @@
+
 import React, { useState } from 'react';
-import { Lead } from '../types';
-import { ExternalLink, Mail, Building, MapPin, Linkedin, Twitter, Facebook, Globe, User } from 'lucide-react';
+import { Lead, LeadStatus } from '../types';
+import { ExternalLink, Mail, Building, MapPin, Linkedin, Twitter, Facebook, Globe, User, Map, Instagram, Phone, MessageCircle, ChevronDown, PhoneCall, Copy, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface LeadTableProps {
   leads: Lead[];
+  selectedIds: Set<number>;
+  onToggleSelect: (id: number) => void;
+  onSelectAll: (ids: number[]) => void;
+  onStatusChange: (id: number, newStatus: LeadStatus) => void;
+  onOpenEmail: (lead: Lead) => void;
 }
 
-const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
+const LeadTable: React.FC<LeadTableProps> = ({ leads, selectedIds, onToggleSelect, onSelectAll, onStatusChange, onOpenEmail }) => {
   const [page, setPage] = useState(1);
+  const [callPreviewLead, setCallPreviewLead] = useState<Lead | null>(null);
+  
   const itemsPerPage = 20;
   const totalPages = Math.ceil(leads.length / itemsPerPage);
 
   const paginatedLeads = leads.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  
+  const isAllSelected = paginatedLeads.length > 0 && paginatedLeads.every(l => selectedIds.has(l.id));
+
+  const handleSelectAllPage = () => {
+    if (isAllSelected) {
+      const newSelected = new Set(selectedIds);
+      paginatedLeads.forEach(l => newSelected.delete(l.id));
+      paginatedLeads.forEach(l => {
+          if (selectedIds.has(l.id)) onToggleSelect(l.id);
+      });
+    } else {
+      const idsToAdd = paginatedLeads.map(l => l.id);
+      onSelectAll(idsToAdd);
+    }
+  };
 
   const getConfidenceColor = (score: number) => {
     if (score >= 90) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400';
@@ -20,22 +44,115 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
     return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
   };
 
+  const getStatusStyle = (status: LeadStatus) => {
+    switch (status) {
+      case 'won': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
+      case 'lost': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800';
+      case 'qualified': return 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800';
+      case 'contacted': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
+      case 'negotiation': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
+    }
+  };
+
+  // Helper to extract phone number for preview
+  const getPhoneNumber = (lead: Lead) => {
+    if (lead.socials?.whatsapp) return `+${lead.socials.whatsapp}`;
+    // Split by common delimiters and find the part that looks like a phone number
+    const parts = lead.contact.split(/[|•,]/);
+    for (const part of parts) {
+        const clean = part.trim();
+        // Check if it has at least 7 digits and isn't an email
+        if (clean.replace(/[^0-9]/g, '').length >= 7 && !clean.includes('@')) {
+            return clean;
+        }
+    }
+    return 'No number found';
+  };
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm flex flex-col h-full">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm flex flex-col h-full relative">
+      
+      {/* Call Preview Modal */}
+      {callPreviewLead && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-sm overflow-hidden transform scale-100 transition-all">
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+               <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                 <PhoneCall className="w-5 h-5 text-indigo-600" /> Call Preview
+               </h3>
+               <button onClick={() => setCallPreviewLead(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                 <X className="w-5 h-5" />
+               </button>
+            </div>
+            
+            <div className="p-6 text-center">
+               <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Building className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+               </div>
+               <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{callPreviewLead.company}</h4>
+               <p className="text-sm text-slate-500 mb-6">{callPreviewLead.location}</p>
+               
+               <div className="bg-slate-100 dark:bg-slate-900 rounded-xl p-4 mb-6 border border-slate-200 dark:border-slate-700">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Phone Number</p>
+                  <p className="text-2xl font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {getPhoneNumber(callPreviewLead)}
+                  </p>
+               </div>
+
+               <div className="grid grid-cols-2 gap-3">
+                 <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(getPhoneNumber(callPreviewLead));
+                      toast.success("Number copied!");
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors text-slate-700 dark:text-slate-200"
+                 >
+                    <Copy className="w-4 h-4" /> Copy
+                 </button>
+                 <a 
+                    href={`tel:${getPhoneNumber(callPreviewLead)}`}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30"
+                 >
+                    <PhoneCall className="w-4 h-4" /> Call Now
+                 </a>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto flex-1">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 dark:bg-slate-700/50 sticky top-0 z-10">
             <tr>
+              <th className="px-6 py-4 w-10">
+                <input 
+                    type="checkbox" 
+                    checked={isAllSelected}
+                    onChange={handleSelectAllPage}
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Company</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Industry & Location</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Key People</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Contact</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Socials & Web</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Contact & Actions</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Socials</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {paginatedLeads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+              <tr key={lead.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${selectedIds.has(lead.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
+                <td className="px-6 py-4">
+                    <input 
+                        type="checkbox" 
+                        checked={selectedIds.has(lead.id)}
+                        onChange={() => onToggleSelect(lead.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                </td>
                 <td className="px-6 py-4 max-w-[250px]">
                   <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                     <Building className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -52,13 +169,38 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
                 </td>
                 
                 <td className="px-6 py-4">
+                  <div className="relative group">
+                    <select
+                      value={lead.status || 'new'}
+                      onChange={(e) => onStatusChange(lead.id, e.target.value as LeadStatus)}
+                      className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-slate-800 transition-all border ${getStatusStyle(lead.status || 'new')}`}
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="negotiation">Negotiation</option>
+                      <option value="won">Won</option>
+                      <option value="lost">Lost</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current opacity-60">
+                      <ChevronDown className="w-3 h-3" />
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-fit">
                       {lead.industry}
                     </span>
-                    <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
+                    <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1 group">
+                      <MapPin className="w-3 h-3 group-hover:text-indigo-500 transition-colors" />
                       {lead.location}
+                      {lead.googleMapsUrl && (
+                        <a href={lead.googleMapsUrl} target="_blank" rel="noreferrer" className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                          <Map className="w-3 h-3 text-indigo-600" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -91,9 +233,46 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
                 </td>
 
                 <td className="px-6 py-4">
-                  <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                    <Mail className="w-3 h-3 text-slate-400" />
-                    <span className="truncate max-w-[150px]" title={lead.contact}>{lead.contact}</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2 mb-1">
+                      {/[0-9]/.test(lead.contact) ? <Phone className="w-3 h-3 text-slate-400" /> : <Mail className="w-3 h-3 text-slate-400" />}
+                      <span className="truncate max-w-[150px]" title={lead.contact}>{lead.contact}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Call Button */}
+                      {(/[0-9]/.test(lead.contact) || lead.socials?.whatsapp) && (
+                         <button 
+                            onClick={() => setCallPreviewLead(lead)}
+                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-lg transition-colors border border-indigo-200 dark:border-indigo-800 shadow-sm"
+                            title="Call Number"
+                          >
+                            <PhoneCall className="w-4 h-4" />
+                         </button>
+                      )}
+
+                      {/* Email Button */}
+                      <button
+                          onClick={() => onOpenEmail(lead)}
+                          className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 rounded-lg transition-colors border border-blue-200 dark:border-blue-800 shadow-sm"
+                          title="Compose Email"
+                       >
+                          <Mail className="w-4 h-4" />
+                       </button>
+
+                      {/* WhatsApp Button */}
+                      {lead.socials?.whatsapp && (
+                         <a 
+                            href={`https://wa.me/${lead.socials.whatsapp}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400 rounded-lg transition-colors border border-green-200 dark:border-green-800 shadow-sm"
+                            title="WhatsApp Chat"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                         </a>
+                      )}
+                    </div>
                   </div>
                 </td>
 
